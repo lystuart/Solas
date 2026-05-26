@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "pipeline": "tsx --env-file=.env.local pipeline/run.ts"
+    "pipeline": "tsx pipeline/run.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.98.0",
