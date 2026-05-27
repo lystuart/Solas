@@ -82,6 +82,7 @@ function createPinElement(
   // 44×50px touch-target button — SVG aligns to bottom so the pin tip = anchor point
   const btn = document.createElement("button");
   btn.type = "button";
+  btn.className = "map-pin";
   btn.setAttribute(
     "aria-label",
     `${resolveCountryName(group.country_code, group.country)}: ${count} positive ${count === 1 ? "story" : "stories"}`
@@ -114,7 +115,7 @@ function createPinElement(
     transformOrigin: "50% 100%",
     transition:
       "transform 200ms cubic-bezier(0,0,0.2,1), filter 200ms cubic-bezier(0,0,0.2,1)",
-    filter: "drop-shadow(0 2px 7px rgba(185,28,28,0.5))",
+    filter: "drop-shadow(0 2px 7px var(--color-pin-shadow))",
   });
 
   // Teardrop body
@@ -123,7 +124,7 @@ function createPinElement(
     "d",
     "M14 3C20 3 25 8 25 14C24 32 14 40 14 40C14 40 4 32 3 14C3 8 8 3 14 3Z"
   );
-  path.setAttribute("fill", "#B91C1C");
+  path.style.fill = "var(--color-pin-fill)";
 
   // Badge circle — top-right corner of teardrop, white pill
   const badge = document.createElementNS(NS, "circle");
@@ -140,7 +141,7 @@ function createPinElement(
   badgeText.setAttribute("dominant-baseline", "central");
   badgeText.setAttribute("font-size", label.length > 1 ? "5" : "6");
   badgeText.setAttribute("font-weight", "700");
-  badgeText.setAttribute("fill", "#7f1d1d");
+  badgeText.style.fill = "var(--color-pin-badge-text)";
   badgeText.setAttribute("font-family", "system-ui, sans-serif");
   badgeText.textContent = label;
 
@@ -159,11 +160,11 @@ function createPinElement(
   // Hover: scale up from tip, stronger glow
   btn.addEventListener("mouseenter", () => {
     svg.style.transform = "scale(1.2) translateY(-4px)";
-    svg.style.filter = "drop-shadow(0 4px 12px rgba(185,28,28,0.65))";
+    svg.style.filter = "drop-shadow(0 4px 12px var(--color-pin-shadow-hover))";
   });
   btn.addEventListener("mouseleave", () => {
     svg.style.transform = "";
-    svg.style.filter = "drop-shadow(0 2px 7px rgba(185,28,28,0.5))";
+    svg.style.filter = "drop-shadow(0 2px 7px var(--color-pin-shadow))";
   });
   // Press feedback (SKILL §2)
   btn.addEventListener("mousedown", () => {
@@ -242,6 +243,7 @@ export default function Map() {
     }
 
     mapRef.current = map;
+    map.setPadding({ top: 64, bottom: 0, left: 0, right: 0 });
 
     map.on("error", (e) => {
       const msg = (e.error as Error)?.message ?? String(e);
@@ -288,6 +290,13 @@ export default function Map() {
         );
         el.addEventListener("mouseleave", () => popup.remove());
 
+        let tooltipTimeout: ReturnType<typeof setTimeout>;
+        el.addEventListener("touchstart", () => {
+          clearTimeout(tooltipTimeout);
+          popup.setLngLat([group.lng, group.lat]).addTo(map);
+          tooltipTimeout = setTimeout(() => popup.remove(), 1200);
+        }, { passive: true });
+
         markersRef.current.push(marker);
       }
       setMapReady(true);
@@ -305,6 +314,7 @@ export default function Map() {
     <>
       {/* Map canvas — position:fixed fills viewport, bypasses all parent layout */}
       <div
+        id="main-content"
         ref={containerRef}
         style={{ position: "fixed", inset: 0, zIndex: 0 }}
         role="region"
@@ -332,6 +342,7 @@ export default function Map() {
       {/* Error state */}
       {mapError && (
         <div
+          aria-live="polite"
           style={{
             position: "fixed", inset: 0, zIndex: 10,
             background: "var(--color-bg)",
@@ -355,6 +366,7 @@ export default function Map() {
           style={{
             position: "fixed", inset: 0, zIndex: 10,
             display: "flex", alignItems: "center", justifyContent: "center",
+            padding: "0 24px",
             pointerEvents: "none",
           }}
         >
@@ -381,7 +393,7 @@ export default function Map() {
           stroke="currentColor"
           strokeLinecap="round"
           strokeLinejoin="round"
-          style={{ color: "#D4A017", flexShrink: 0, userSelect: "none" }}
+          style={{ color: "var(--color-brand-gold)", flexShrink: 0, userSelect: "none" }}
           aria-label="Solas logo"
         >
           {/* Outer faceted heart boundary */}
@@ -436,7 +448,7 @@ export default function Map() {
             fontSize: "13px",
             fontWeight: 400,
             fontStyle: "italic",
-            color: "#D4A017",
+            color: "var(--color-brand-gold)",
             marginLeft: "10px",
             userSelect: "none",
             lineHeight: 1,
@@ -506,6 +518,39 @@ function StoryPanel({
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
+
+  // Focus trap: move focus inside on open, cycle Tab within panel, restore on close
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) return;
+
+    const FOCUSABLE =
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+    const getFocusable = () => Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE));
+
+    const prevFocus = document.activeElement as HTMLElement | null;
+    getFocusable()[0]?.focus();
+
+    const trap = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+      const els = getFocusable();
+      if (els.length === 0) { e.preventDefault(); return; }
+      const first = els[0];
+      const last = els[els.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+      } else {
+        if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    };
+
+    panel.addEventListener("keydown", trap);
+    return () => {
+      panel.removeEventListener("keydown", trap);
+      prevFocus?.focus();
+    };
+  }, []);
 
   return (
     <div
