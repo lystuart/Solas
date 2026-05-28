@@ -606,10 +606,10 @@ function StoryPanel({
               rel="noopener noreferrer"
               className="story-card"
             >
-              <h3 className="story-card__title">
-                {story.title}
+              <div className="story-card__title-row">
+                <h3 className="story-card__title">{story.title}</h3>
                 <svg className="story-card__arrow" aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2.5 9.5L9.5 2.5M9.5 2.5H4M9.5 2.5V8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              </h3>
+              </div>
               {story.summary && (
                 <p className="story-card__summary">{story.summary}</p>
               )}
